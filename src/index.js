@@ -25,7 +25,7 @@ fs.readFile(
         let note = '';
         if (
           ve.elements.findIndex((x) => x.name === 'VEBemerkung') >= 0 &&
-          'text' in ve.elements.find((x) => x.name === 'VEBemerkung')
+          'elements' in ve.elements.find((x) => x.name === 'VEBemerkung')
         ) {
           note += ve.elements.filter((v) => v.name === 'VEBemerkung')[0]
             .elements[0].text;
@@ -36,7 +36,7 @@ fs.readFile(
             .filter((v) => v.name === 'BaubetrieblicheRegelungen')[0]
             .elements.filter((g) => g.name === 'BaubetrieblicheRegelung')[0]
             .elements.findIndex((x) => x.name === 'Bemerkung') >= 0 &&
-          'text' in
+          'elements' in
             ve.elements
               .filter((v) => v.name === 'BaubetrieblicheRegelungen')[0]
               .elements.filter((g) => g.name === 'BaubetrieblicheRegelung')[0]
@@ -74,8 +74,13 @@ fs.readFile(
           line = [line[0].elements[0].text, line[1].elements[0].text];
         }
 
-        if (i === 594) {
-          console.log(line);
+        if (i === 0) {
+          console.log(
+            ve.elements
+              .filter((v) => v.name === 'BaubetrieblicheRegelungen')[0]
+              .elements.filter((g) => g.name === 'BaubetrieblicheRegelung')[0]
+              .elements.find((x) => x.name === 'Bemerkung'),
+          );
           // console.log(bts[1].elements[0].text);
         }
 
@@ -129,6 +134,6 @@ fs.readFile(
       });
     });
     // console.log(bVE);
-    console.log(bVE.filter((b) => b.BTS.length === 2).length);
+    console.log(bVE[0]);
   },
 );
