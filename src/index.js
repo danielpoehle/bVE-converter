@@ -1,8 +1,9 @@
 import convert from 'xml-js';
 import { DateTime } from 'luxon';
 import fs from 'fs';
+import parse from 'csv-parse';
 
-async function importBVEFromISS(fileName, k) {
+async function importBVEFromISS(fileName, k, coords) {
   const xml = await fs.promises.readFile(fileName, 'latin1');
   const works = convert.xml2js(xml, { compact: false, spaces: 2 }).elements[0]
     .elements[4].elements;
@@ -50,7 +51,15 @@ async function importBVEFromISS(fileName, k) {
         .elements.filter((p) => p.name === 'Betriebsstelle');
 
       if (bts[0].elements[0].text === bts[1].elements[0].text) {
-        bts = [bts[0].elements[0].text];
+        const nm = bts[0].elements[0].text.split(' ')[0].trim();
+        const co = coords.find((c) => c.KUERZEL === nm);
+        if (co === undefined) {
+          console.log(`ds100 ${bts[0].elements[0].text}`);
+          console.log(`nm ${nm}`);
+        } else {
+          bts = [{ ds100: nm, b: co.GEOGR_BREITE, l: co.GEOGR_LAENGE }];
+        }
+        // console.log(bts);
       } else {
         bts = [bts[0].elements[0].text, bts[1].elements[0].text];
       }
@@ -131,19 +140,56 @@ async function importBVEFromISS(fileName, k) {
     });
   });
   console.log(bVE.length);
-  const fname = `/home/daniel/Documents/json/${k}json`;
+  const fname = `/home/daniel/Documents/json/${k}.json`;
   fs.writeFile(fname, JSON.stringify(bVE), (err) => {
     if (err) return console.log(err);
     console.log(`File saved: ${fname}`);
+    return undefined;
   });
 }
 
-const folder = '/home/daniel/Documents/bVE/';
+const folder1 = '/home/daniel/Documents/bVE/';
+const coordFile =
+  '/home/daniel/Documents/js/bVE-converter/hlp/betriebsstellen_open_data.csv';
 
+let coords = [];
+fs.readFile(coordFile, (err, data) => {
+  parse(data, { columns: true, encoding: 'latin1' }, (error, content) => {
+    coords = content;
+    console.log(coords.find((c) => c.KUERZEL === 'DH'));
+    console.log(coords.find((c) => c.KUERZEL === 'FMZ'));
+    console.log(coords.find((c) => c.KUERZEL === 'WVR'));
+    console.log(coords.find((c) => c.KUERZEL === 'EBTHG'));
+    fs.readdir(folder1, (err, files) => {
+      const filenames = files.map((x) => folder1 + x);
+      // console.log(filenames);
+      filenames.forEach((file, k) => {
+        // console.log(`${k} ${file}`);
+        importBVEFromISS(file, 1 + k, coords);
+      });
+    });
+  });
+});
+
+const folder = '/home/daniel/Documents/json/';
+let bVEList = [];
 fs.readdir(folder, (err, files) => {
   const filenames = files.map((x) => folder + x);
   console.log(filenames);
-  filenames.forEach((file, k) => {
-    // importBVEFromISS(file, 1 + k);
+  filenames.forEach((file) => {
+    fs.readFile(file, (error, data) => {
+      console.log(JSON.parse(data).length);
+      bVEList = bVEList.concat(JSON.parse(data));
+      console.log(bVEList.length);
+    });
   });
 });
+
+setTimeout(() => {
+  const fname = `/home/daniel/Documents/complete.json`;
+  fs.writeFile(fname, JSON.stringify(bVEList), (err) => {
+    if (err) return console.log(err);
+    console.log(`File saved: ${fname}`);
+    return undefined;
+  });
+}, 3000);

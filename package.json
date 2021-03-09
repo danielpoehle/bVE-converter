@@ -41,6 +41,8 @@
     "sucrase": "^3.17.1"
   },
   "dependencies": {
+    "csv-parse": "^4.15.3",
+    "fastest-levenshtein": "^1.0.12",
     "luxon": "^1.26.0",
     "xml-js": "^1.6.11"
   }
