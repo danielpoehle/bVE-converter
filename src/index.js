@@ -1,7 +1,6 @@
 import convert from 'xml-js';
 import { DateTime } from 'luxon';
 import fs from 'fs';
-import parse from 'csv-parse';
 
 async function importBVEFromISS(fileName, k, coords) {
   const xml = await fs.promises.readFile(fileName, 'latin1');
@@ -51,17 +50,27 @@ async function importBVEFromISS(fileName, k, coords) {
         .elements.filter((p) => p.name === 'Betriebsstelle');
 
       if (bts[0].elements[0].text === bts[1].elements[0].text) {
-        const nm = bts[0].elements[0].text.split(' ')[0].trim();
-        const co = coords.find((c) => c.KUERZEL === nm);
+        const nm = bts[0].elements[0].text;
+        const co = coords.find((c) => c.DS100 === nm);
         if (co === undefined) {
-          console.log(`ds100 ${bts[0].elements[0].text}`);
-          console.log(`nm ${nm}`);
+          console.log(`ds100 ${nm}`);
         } else {
-          bts = [{ ds100: nm, b: co.GEOGR_BREITE, l: co.GEOGR_LAENGE }];
+          bts = [{ ds100: co.DS100, name: co.Name, lat: co.lat, lon: co.lon }];
         }
         // console.log(bts);
       } else {
-        bts = [bts[0].elements[0].text, bts[1].elements[0].text];
+        const nm1 = bts[0].elements[0].text;
+        const co1 = coords.find((c) => c.DS100 === nm1);
+        const nm2 = bts[1].elements[0].text;
+        const co2 = coords.find((c) => c.DS100 === nm2);
+        if (co1 === undefined || co2 === undefined) {
+          console.log(`ds100 ${nm1} ${nm2}`);
+        } else {
+          bts = [
+            { ds100: co1.DS100, name: co1.Name, lat: co1.lat, lon: co1.lon },
+            { ds100: co2.DS100, name: co2.Name, lat: co2.lat, lon: co2.lon },
+          ];
+        }
       }
 
       let line = ve.elements
@@ -140,6 +149,7 @@ async function importBVEFromISS(fileName, k, coords) {
     });
   });
   console.log(bVE.length);
+  console.log(bVE[0]);
   const fname = `/home/daniel/Documents/json/${k}.json`;
   fs.writeFile(fname, JSON.stringify(bVE), (err) => {
     if (err) return console.log(err);
@@ -149,24 +159,23 @@ async function importBVEFromISS(fileName, k, coords) {
 }
 
 const folder1 = '/home/daniel/Documents/bVE/';
-const coordFile =
-  '/home/daniel/Documents/js/bVE-converter/hlp/betriebsstellen_open_data.csv';
+const coordFile = '/home/daniel/Documents/coord/210322_iss_interpolate.json';
 
 let coords = [];
 fs.readFile(coordFile, (err, data) => {
-  parse(data, { columns: true, encoding: 'latin1' }, (error, content) => {
-    coords = content;
-    console.log(coords.find((c) => c.KUERZEL === 'DH'));
-    console.log(coords.find((c) => c.KUERZEL === 'FMZ'));
-    console.log(coords.find((c) => c.KUERZEL === 'WVR'));
-    console.log(coords.find((c) => c.KUERZEL === 'EBTHG'));
-    fs.readdir(folder1, (err, files) => {
-      const filenames = files.map((x) => folder1 + x);
-      // console.log(filenames);
-      filenames.forEach((file, k) => {
-        // console.log(`${k} ${file}`);
-        importBVEFromISS(file, 1 + k, coords);
-      });
+  coords = JSON.parse(data);
+  console.log(coords[0]);
+  console.log(coords.find((c) => c.DS100 === 'DH'));
+  console.log(coords.find((c) => c.DS100 === 'FMZ'));
+  console.log(coords.find((c) => c.DS100 === 'WVR'));
+  console.log(coords.find((c) => c.DS100 === 'EBTHG'));
+  console.log(coords.find((c) => c.DS100 === 'FSP'));
+  fs.readdir(folder1, (err, files) => {
+    const filenames = files.map((x) => folder1 + x);
+    // console.log(filenames);
+    filenames.forEach((file, k) => {
+      // console.log(`${k} ${file}`);
+      importBVEFromISS(file, 1 + k, coords);
     });
   });
 });
