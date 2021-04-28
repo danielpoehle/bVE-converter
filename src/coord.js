@@ -6,6 +6,8 @@ const folder = '/home/daniel/Documents/coord/iss/';
 const result = [];
 let nodes = [];
 let betriebsstelle = [];
+let btsDb = [];
+let corrected = [];
 let bahnhof = [];
 let names = [];
 let bts = [];
@@ -23,16 +25,25 @@ fs.readdir(folder, (err, files) => {
       }
     });
   });
+
   setTimeout(() => {
     names = nodes.map((a) => a.tags.name);
     bts.forEach((b) => {
       const nm = b.Name._text;
       const ds = b.DS100._text;
       let target = {};
-      if (betriebsstelle.findIndex((bt) => bt.KUERZEL === ds) > -1) {
+      if (btsDb.findIndex((b) => b.RL100 === ds) > -1) {
+        const matchBT = btsDb.find((b) => b.RL100 === ds);
+        target.lon = matchBT.GEOGR_LAENGE.replace(',', '.');
+        target.lat = matchBT.GEOGR_BREITE.replace(',', '.');
+      } else if (betriebsstelle.findIndex((bt) => bt.KUERZEL === ds) > -1) {
         const matchBT = betriebsstelle.find((bt) => bt.KUERZEL === ds);
         target.lat = matchBT.GEOGR_BREITE;
         target.lon = matchBT.GEOGR_LAENGE;
+      } else if (corrected.findIndex((cr) => cr.DS100 === ds) > -1) {
+        const matchBT = corrected.find((cr) => cr.DS100 === ds);
+        target.lon = matchBT.lon;
+        target.lat = matchBT.lat;
       } else if (bahnhof.findIndex((bf) => bf.DS100 === ds) > -1) {
         const matchBF = bahnhof.find((bf) => bf.DS100 === ds);
         target.lat = matchBF.Breite;
@@ -75,8 +86,8 @@ fs.readFile(
         nodes.splice(id, 1);
       }
     }
-    console.log(nodes.slice(0, 25));
-    console.log(nodes.length);
+    // console.log(nodes.slice(0, 25));
+    // console.log(nodes.length);
   },
 );
 
@@ -87,7 +98,29 @@ fs.readFile(
     // console.log(data);
     betriebsstelle = JSON.parse(data);
     // console.log(betriebsstelle.slice(0, 1));
-    console.log(betriebsstelle.length);
+    // console.log(betriebsstelle.length);
+  },
+);
+
+fs.readFile(
+  '/home/daniel/Documents/coord/db/bts_db_off.json',
+  'utf8',
+  (err, data) => {
+    // console.log(data);
+    btsDb = JSON.parse(data);
+    // console.log(betriebsstelle.slice(0, 1));
+    // console.log(btsDb.length);
+  },
+);
+
+fs.readFile(
+  '/home/daniel/Documents/coord/corrected/result.json',
+  'utf8',
+  (err, data) => {
+    // console.log(data);
+    corrected = JSON.parse(data);
+    // console.log(betriebsstelle.slice(0, 1));
+    // console.log(corrected.length);
   },
 );
 
@@ -121,13 +154,14 @@ fs.readFile(
     });
     setTimeout(() => {
       // console.log(bahnhof.slice(0, 1));
-      console.log(bahnhof.length);
+      // console.log(bahnhof.length);
     }, 5000);
   },
 );
 
 setTimeout(() => {
   console.log(bts.length);
+  console.log(bts[0]);
   console.log(result.length);
   console.log(result.slice(0, 5));
   const fname = '/home/daniel/Documents/coord/iss_interpolate.json';

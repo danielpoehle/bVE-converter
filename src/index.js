@@ -2,7 +2,7 @@ import convert from 'xml-js';
 import { DateTime } from 'luxon';
 import fs from 'fs';
 
-async function importBVEFromISS(fileName, k, coords) {
+async function importBVEFromISS(fileName, k, coords, btsDb) {
   const xml = await fs.promises.readFile(fileName, 'latin1');
   const works = convert.xml2js(xml, { compact: false, spaces: 2 }).elements[0]
     .elements[4].elements;
@@ -42,37 +42,6 @@ async function importBVEFromISS(fileName, k, coords) {
           .elements.filter((b) => b.name === 'Bemerkung')[0].elements[0].text;
       }
 
-      let bts = ve.elements
-        .filter((v) => v.name === 'BaubetrieblicheRegelungen')[0]
-        .elements.filter((g) => g.name === 'BaubetrieblicheRegelung')[0]
-        .elements.filter((b) => b.name === 'MakroskopischeOrtsangabe')[0]
-        .elements.filter((o) => o.name === 'Betriebsstellen')[0]
-        .elements.filter((p) => p.name === 'Betriebsstelle');
-
-      if (bts[0].elements[0].text === bts[1].elements[0].text) {
-        const nm = bts[0].elements[0].text;
-        const co = coords.find((c) => c.DS100 === nm);
-        if (co === undefined) {
-          console.log(`ds100 ${nm}`);
-        } else {
-          bts = [{ ds100: co.DS100, name: co.Name, lat: co.lat, lon: co.lon }];
-        }
-        // console.log(bts);
-      } else {
-        const nm1 = bts[0].elements[0].text;
-        const co1 = coords.find((c) => c.DS100 === nm1);
-        const nm2 = bts[1].elements[0].text;
-        const co2 = coords.find((c) => c.DS100 === nm2);
-        if (co1 === undefined || co2 === undefined) {
-          console.log(`ds100 ${nm1} ${nm2}`);
-        } else {
-          bts = [
-            { ds100: co1.DS100, name: co1.Name, lat: co1.lat, lon: co1.lon },
-            { ds100: co2.DS100, name: co2.Name, lat: co2.lat, lon: co2.lon },
-          ];
-        }
-      }
-
       let line = ve.elements
         .filter((v) => v.name === 'BaubetrieblicheRegelungen')[0]
         .elements.filter((g) => g.name === 'BaubetrieblicheRegelung')[0]
@@ -84,6 +53,69 @@ async function importBVEFromISS(fileName, k, coords) {
         line = [line[0].elements[0].text];
       } else {
         line = [line[0].elements[0].text, line[1].elements[0].text];
+      }
+
+      let bts = ve.elements
+        .filter((v) => v.name === 'BaubetrieblicheRegelungen')[0]
+        .elements.filter((g) => g.name === 'BaubetrieblicheRegelung')[0]
+        .elements.filter((b) => b.name === 'MakroskopischeOrtsangabe')[0]
+        .elements.filter((o) => o.name === 'Betriebsstellen')[0]
+        .elements.filter((p) => p.name === 'Betriebsstelle');
+
+      if (bts[0].elements[0].text === bts[1].elements[0].text) {
+        const nm = bts[0].elements[0].text;
+        let co = btsDb.find((b) => b.RL100 === nm && b.STRECKE_NR === line[0]);
+        if (co === undefined) {
+          co = coords.find((c) => c.DS100 === nm);
+          bts = [{ ds100: co.DS100, name: co.Name, lat: co.lat, lon: co.lon }];
+          console.log(`ds100 ${nm}`);
+        } else {
+          bts = [
+            {
+              ds100: co.RL100,
+              name: co.DBDSTNAME,
+              lat: co.GEOGR_BREITE.replace(',', '.'),
+              lon: co.GEOGR_LAENGE.replace(',', '.'),
+            },
+          ];
+        }
+        // console.log(bts);
+      } else {
+        const nm1 = bts[0].elements[0].text;
+        let co1 = btsDb.find(
+          (b) => b.RL100 === nm1 && b.STRECKE_NR === line[0],
+        );
+        const nm2 = bts[1].elements[0].text;
+        let co2 = btsDb.find(
+          (b) => b.RL100 === nm2 && b.STRECKE_NR === line[0],
+        );
+        if (line.length === 2) {
+          co2 = btsDb.find((b) => b.RL100 === nm2 && b.STRECKE_NR === line[1]);
+        }
+        if (co1 === undefined || co2 === undefined) {
+          co1 = coords.find((c) => c.DS100 === nm1);
+          co2 = coords.find((c) => c.DS100 === nm2);
+          bts = [
+            { ds100: co1.DS100, name: co1.Name, lat: co1.lat, lon: co1.lon },
+            { ds100: co2.DS100, name: co2.Name, lat: co2.lat, lon: co2.lon },
+          ];
+          console.log(`ds100 ${nm1} ${nm2}`);
+        } else {
+          bts = [
+            {
+              ds100: co1.RL100,
+              name: co1.DBDSTNAME,
+              lat: co1.GEOGR_BREITE.replace(',', '.'),
+              lon: co1.GEOGR_LAENGE.replace(',', '.'),
+            },
+            {
+              ds100: co2.RL100,
+              name: co2.DBDSTNAME,
+              lat: co2.GEOGR_BREITE.replace(',', '.'),
+              lon: co2.GEOGR_LAENGE.replace(',', '.'),
+            },
+          ];
+        }
       }
 
       const gStart = ve.elements
@@ -123,6 +155,9 @@ async function importBVEFromISS(fileName, k, coords) {
         NONSTOP: ve.elements
           .filter((v) => v.name === 'Gueltigkeit-bVE')[0]
           .elements.filter((g) => g.name === 'Durchgehend')[0].elements[0].text,
+        SCHICHT: ve.elements
+          .filter((v) => v.name === 'Gueltigkeit-bVE')[0]
+          .elements.filter((g) => g.name === 'Schicht')[0].elements[0].text,
         WORK: work.elements.filter((w) => w.name === 'ArtDerArbeiten')[0]
           .elements[0].text,
         LIMITATION: ve.elements.filter((v) => v.name === 'VE-Art')[0]
@@ -145,6 +180,7 @@ async function importBVEFromISS(fileName, k, coords) {
           )[0].elements[0].text,
         BTS: bts,
         LINE: line,
+        SELECTED: false,
       });
     });
   });
@@ -159,9 +195,10 @@ async function importBVEFromISS(fileName, k, coords) {
 }
 
 const folder1 = '/home/daniel/Documents/bVE/';
-const coordFile = '/home/daniel/Documents/coord/210322_iss_interpolate.json';
+const coordFile = '/home/daniel/Documents/coord/210330_iss_interpolate.json';
 
 let coords = [];
+let btsDb = [];
 fs.readFile(coordFile, (err, data) => {
   coords = JSON.parse(data);
   console.log(coords[0]);
@@ -170,14 +207,24 @@ fs.readFile(coordFile, (err, data) => {
   console.log(coords.find((c) => c.DS100 === 'WVR'));
   console.log(coords.find((c) => c.DS100 === 'EBTHG'));
   console.log(coords.find((c) => c.DS100 === 'FSP'));
-  fs.readdir(folder1, (err, files) => {
-    const filenames = files.map((x) => folder1 + x);
-    // console.log(filenames);
-    filenames.forEach((file, k) => {
-      // console.log(`${k} ${file}`);
-      importBVEFromISS(file, 1 + k, coords);
-    });
-  });
+  fs.readFile(
+    '/home/daniel/Documents/coord/db/bts_db_off.json',
+    'utf8',
+    (err, data) => {
+      // console.log(data);
+      btsDb = JSON.parse(data);
+      // console.log(betriebsstelle.slice(0, 1));
+      // console.log(btsDb.length);
+      fs.readdir(folder1, (err, files) => {
+        const filenames = files.map((x) => folder1 + x);
+        // console.log(filenames);
+        filenames.forEach((file, k) => {
+          // console.log(`${k} ${file}`);
+          importBVEFromISS(file, 1 + k, coords, btsDb);
+        });
+      });
+    },
+  );
 });
 
 const folder = '/home/daniel/Documents/json/';
